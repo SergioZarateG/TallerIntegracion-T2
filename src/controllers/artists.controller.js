@@ -29,32 +29,36 @@ const getArtistById = async (req, res) => {
 
 
 const createArtist = async (req, res) => {
-    const { name, age, } = req.body;
+    const { name, age } = req.body;
     try {
-        let name_token = Buffer.from(name).toString('base64');
-        if (name_token.length > 22) {
-            name_token = name_token.substr(0,21);
-        } 
-        const artist = await Artist.findOne({
-            where: {
-                id: name_token
+        if (typeof(name) == 'string' && typeof(age) == 'number' && name != null && age != null) {
+            let name_token = Buffer.from(name).toString('base64');
+            if (name_token.length > 22) {
+                name_token = name_token.substr(0,21);
+            } 
+            const artist = await Artist.findOne({
+                where: {
+                    id: name_token
+                }
+            });
+            if (artist) {
+                res.status(409).end();
+            } else {
+                const albums = 'http://localhost:3000/artists/'+name_token+'/albums';
+                const tracks = 'http://localhost:3000/artists/'+name_token+'/tracks';
+                const self = 'http://localhost:3000/artists/'+name_token;
+                const response = await Artist.create({
+                    id: name_token,
+                    name: name,
+                    age: age,
+                    albums: albums,
+                    tracks: tracks,
+                    self: self
+                }, { fields: ['id', 'name', 'age', 'albums', 'tracks', 'self'] });
+                res.status(201).json(response);
             }
-        });
-        if (artist) {
-            res.status(409).end();
         } else {
-            const albums = 'http://localhost:3000/artists/'+name_token+'/albums';
-            const tracks = 'http://localhost:3000/artists/'+name_token+'/tracks';
-            const self = 'http://localhost:3000/artists/'+name_token;
-            const response = await Artist.create({
-                id: name_token,
-                name: name,
-                age: age,
-                albums: albums,
-                tracks: tracks,
-                self: self
-            }, { fields: ['id', 'name', 'age', 'albums', 'tracks', 'self'] });
-            res.status(201).json(response);
+            res.status(400).end()
         }
     } catch(err) {
         console.log(err);

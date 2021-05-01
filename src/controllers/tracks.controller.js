@@ -33,43 +33,47 @@ const createTrack = async (req, res) => {
     const { name, duration } = req.body;
     const { album_id } = req.params;
     try {
-         var albun = await Album.findOne({
-            where: {
-                id: album_id
-            }
-        });
-        if (albun) {
-            const id_track = name.concat(':', toString(album_id));
-            let name_token = Buffer.from(id_track).toString('base64');
-            if (name_token.length > 22) {
-                name_token = name_token.substr(0,22);
-            } 
-            const track = await Track.findOne({
+        if (typeof(name) == 'string' && typeof(duration) == 'number' && name != null && duration != null) {
+            var albun = await Album.findOne({
                 where: {
-                    id: name_token
+                    id: album_id
                 }
             });
-            if (track) {
-                res.status(409).end();
+            if (albun) {
+                const id_track = name.concat(':', toString(album_id));
+                let name_token = Buffer.from(id_track).toString('base64');
+                if (name_token.length > 22) {
+                    name_token = name_token.substr(0,22);
+                } 
+                const track = await Track.findOne({
+                    where: {
+                        id: name_token
+                    }
+                });
+                if (track) {
+                    res.status(409).end();
+                } else {
+                    console.log(albun);
+                    const artist = 'http://localhost:3000/artists/'+albun.dataValues.artist_id;
+                    const album = 'http://localhost:3000/albums/'+album_id;
+                    const self = 'http://localhost:3000/tracks/'+name_token;
+                    const response = await Track.create({
+                        id: name_token,
+                        album_id: album_id,
+                        name: name,
+                        duration: duration,
+                        times_played: 0,
+                        artist: artist,
+                        album: album,
+                        self: self
+                    }, { fields: ['id', 'album_id','name', 'duration', 'times_played', 'artist', 'album', 'self'] });
+                    res.status(201).json(response);
+                }
             } else {
-                console.log(albun);
-                const artist = 'http://localhost:3000/artists/'+albun.dataValues.artist_id;
-                const album = 'http://localhost:3000/albums/'+album_id;
-                const self = 'http://localhost:3000/tracks/'+name_token;
-                const response = await Track.create({
-                    id: name_token,
-                    album_id: album_id,
-                    name: name,
-                    duration: duration,
-                    times_played: 0,
-                    artist: artist,
-                    album: album,
-                    self: self
-                }, { fields: ['id', 'album_id','name', 'duration', 'times_played', 'artist', 'album', 'self'] });
-                res.status(201).json(response);
+                res.status(422).end();
             }
         } else {
-            res.status(422).end();
+            res.status(400).end();
         }
     } catch(err) {
         console.log(err);
@@ -103,7 +107,7 @@ const getTracksOfAlbum = async (req, res) => {
                 album_id: album_id
             }
         });
-        if (response) {
+        if (response.length > 0) {
             res.status(200).json(response);
         } else {
             res.status(404).end();
@@ -147,6 +151,39 @@ async function updateForTrack(tracks) {
     });
 };
 
+const updateTracksOfArtist = async (req, res) => {
+    const { artist_id } = req.params;
+    try {
+        const my_albums = await Album.findAll({
+            where: {
+                artist_id: artist_id
+            }
+        });
+        console.log(my_albums);
+        if (my_albums){
+            const len_albums = my_albums.length;
+            let t = 1;
+            my_albums.forEach( async albun => {
+                const cancion = await Track.findAll({
+                    where: {
+                        album_id: albun.dataValues.id
+                    }
+                });
+                await updateForTrack(cancion);
+                t += 1;
+                if (t = len_albums){
+                    res.status(200).end();
+                }
+            });
+        } else {
+            res.status(404).end();
+        }
+    } catch (err) 
+    {
+        res.status(405).end()
+    }
+}
+
 const updateTracksofAlbum = async (req, res) => {
     const { album_id } = req.params;
     try {
@@ -155,7 +192,7 @@ const updateTracksofAlbum = async (req, res) => {
                 album_id: album_id
             }
         });
-        if (my_album){
+        if (my_album.length > 0){
             updateForTrack(my_album).then(() => {
                 res.status(200).end();
             });
@@ -167,24 +204,6 @@ const updateTracksofAlbum = async (req, res) => {
     }
 }
 
-async function probarObtenerCacion(albums) 
-{   
-    let list_final = [];
-    await albums.forEach( async elem => {
-        let my_album = elem.dataValues.id;
-        const response = await Track.findAll({
-            where : {
-                album_id: my_album
-            }
-        });
-        response.forEach(elem => {
-            list_final.push(elem.dataValues);
-            //console.log(list_final);
-        });
-    });
-    return list_final;
-}
-
 const getTracksOfArtist = async (req, res) => {
     const { artist_id } = req.params;
     try {
@@ -193,7 +212,38 @@ const getTracksOfArtist = async (req, res) => {
                 artist_id: artist_id
             }
         });
-        probarObtenerCacion(my_albums).then(elem => {res.status(200).json(elem)});
+        if (my_albums.length > 0) {
+            let list_final = [];
+            const len_albums = my_albums.length;
+            if (len_albums > 1) {
+                let t = 1;
+                await my_albums.forEach( async elem => {
+                    let my_album = elem.dataValues.id;
+                    const response = await Track.findAll({
+                        where : {
+                            album_id: my_album
+                        }
+                    });
+                    response.forEach(elem => {
+                        list_final.push(elem.dataValues);
+                    });
+                    t += 1
+                    if (t == len_albums) {
+                        res.status(200).json(list_final);
+                    }
+                });
+            } else {
+                let my_album = my_albums[0].dataValues.id;
+                const response = await Track.findAll({
+                    where: {
+                        album_id: my_album
+                    }
+                });
+                res.status(200).json(response);
+            }
+        } else {
+            res.status(404).end();
+        }
     } catch (err) {
         console.log(err);
         res.status(405).end();
@@ -208,5 +258,6 @@ module.exports = {
     getTracksOfAlbum,
     getTracksOfArtist,
     updateTrack,
-    updateTracksofAlbum
+    updateTracksofAlbum,
+    updateTracksOfArtist
 }

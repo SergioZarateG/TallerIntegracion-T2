@@ -3,7 +3,7 @@ const router = Router();
 
 const {createArtist, getArtists, getArtistById, deleteArtists} = require('../controllers/artists.controller');
 const { createAlbum, getAlbums, getAlbumById, deleteAlbums, getAlbumsOfArtist } = require('../controllers/albums.controller');
-const { createTrack, getTracks, getTrackById, deleteTracks, getTracksOfAlbum, getTracksOfArtist, updateTrack, updateTracksofAlbum } = require('../controllers/tracks.controller');
+const { createTrack, getTracks, getTrackById, deleteTracks, getTracksOfAlbum, getTracksOfArtist, updateTrack, updateTracksofAlbum, updateTracksOfArtist } = require('../controllers/tracks.controller');
 
 router.get('/artists', getArtists);
 router.get('/artists/:id', getArtistById);
@@ -24,5 +24,6 @@ router.get('/albums/:album_id/tracks', getTracksOfAlbum);
 router.get('/artists/:artist_id/tracks', getTracksOfArtist);
 router.put('/tracks/:track_id/play', updateTrack);
 router.put('/albums/:album_id/tracks/play', updateTracksofAlbum);
+router.put('/artists/:artist_id/albums/play', updateTracksOfArtist);
  
 module.exports = router;

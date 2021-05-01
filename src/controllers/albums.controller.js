@@ -32,41 +32,45 @@ const createAlbum = async (req, res) => {
     const { name, genre } = req.body;
     const { artist_id } = req.params;
     try {
-        const artist = await Artist.findOne({
-            where: {
-                id: artist_id
-            }
-        })
-        if (artist) {
-            const id_album = name.concat(':', toString(artist_id));
-            let name_token = Buffer.from(id_album).toString('base64');
-            if (name_token.length > 22) {
-                name_token = name_token.substr(0,22);
-            } 
-            const album = await Album.findOne({
+        if (typeof(name) == 'string' && typeof(genre) == 'string' && name != null && genre != null) {
+            const artist = await Artist.findOne({
                 where: {
-                    id: name_token
+                    id: artist_id
                 }
-            });
-            if (album) {
-                res.status(409).end();
+            })
+            if (artist) {
+                const id_album = name.concat(':', toString(artist_id));
+                let name_token = Buffer.from(id_album).toString('base64');
+                if (name_token.length > 22) {
+                    name_token = name_token.substr(0,22);
+                } 
+                const album = await Album.findOne({
+                    where: {
+                        id: name_token
+                    }
+                });
+                if (album) {
+                    res.status(409).end();
+                } else {
+                    const artist = 'http://localhost:3000/artists/'+artist_id;
+                    const tracks = 'http://localhost:3000/albums/'+name_token+'/tracks';
+                    const self = 'http://localhost:3000/albums/'+name_token;
+                    const response = await Album.create({
+                        id: name_token,
+                        artist_id: artist_id,
+                        name: name,
+                        genre: genre,
+                        artist: artist,
+                        tracks: tracks,
+                        self: self
+                    }, { fields: ['id', 'artist_id','name', 'genre', 'artist', 'tracks', 'self'] });
+                    res.status(201).json(response);
+                }
             } else {
-                const artist = 'http://localhost:3000/artists/'+artist_id;
-                const tracks = 'http://localhost:3000/albums/'+name_token+'/tracks';
-                const self = 'http://localhost:3000/albums/'+name_token;
-                const response = await Album.create({
-                    id: name_token,
-                    artist_id: artist_id,
-                    name: name,
-                    genre: genre,
-                    artist: artist,
-                    tracks: tracks,
-                    self: self
-                }, { fields: ['id', 'artist_id','name', 'genre', 'artist', 'tracks', 'self'] });
-                res.status(201).json(response);
+                res.status(422).end();
             }
         } else {
-            res.status(422).end();
+            res.status(400).end();
         }
     } catch(err) {
         res.status(400).end();
@@ -100,7 +104,7 @@ const getAlbumsOfArtist = async (req, res) => {
                 artist_id: artist_id
             }
         });
-        if (response) {
+        if (response.length > 0) {
             res.status(200).json(response);
         } else {
             res.status(404).end();
